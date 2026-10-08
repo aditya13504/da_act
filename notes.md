@@ -1,0 +1,1 @@
+- 2026-10-08: learned about rate limiting strategies
