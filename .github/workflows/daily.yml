@@ -1,0 +1,150 @@
+name: Daily commit
+on:
+  schedule:
+    - cron: "0 * * * *"    # hourly; random gate picks one run
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Random gate (fires ~1 in 24 runs → random time)
+        id: gate
+        run: echo "roll=$((RANDOM % 24))" >> $GITHUB_OUTPUT
+
+      - name: Make varied change
+        if: steps.gate.outputs.roll == '0' || github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name "aditya13504"
+          git config user.email "142911952+aditya13504@users.noreply.github.com"
+
+          # ---------- CODE SNIPPETS (real-looking diffs) ----------
+          mkdir -p src
+          N=$RANDOM
+
+          case $((N % 6)) in
+            0)  # python function
+              cat >> src/utils.py <<'EOF'
+
+def generate_report(data, title="report"):
+    """Build a summary report from raw records."""
+    summary = {}
+    for row in data:
+        key = row.get("category", "misc")
+        summary[key] = summary.get(key, 0) + row.get("count", 1)
+    return {"title": title, "total": sum(summary.values()), "breakdown": summary}
+EOF
+              FILE_MSG="add report generator"
+              ;;
+            1)  # js helper
+              cat >> src/helpers.js <<'EOF'
+
+export const debounce = (fn, delay = 300) => {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+};
+EOF
+              FILE_MSG="add debounce helper"
+              ;;
+            2)  # bash script
+              cat >> scripts/backup.sh <<'EOF'
+
+#!/usr/bin/env bash
+# Simple rotating backup of a directory
+SRC="${1:-.}"
+DEST="${2:-./backups}"
+mkdir -p "$DEST"
+tar -czf "$DEST/backup-$(date +%Y%m%d).tar.gz" "$SRC"
+EOF
+              chmod +x scripts/backup.sh 2>/dev/null || true
+              FILE_MSG="add backup script"
+              ;;
+            3)  # yaml config
+              cat >> config/settings.yml <<'EOF'
+
+logging:
+  level: info
+  format: json
+  outputs:
+    - console
+    - file
+retries:
+  max_attempts: 3
+  backoff: exponential
+EOF
+              FILE_MSG="update config"
+              ;;
+            4)  # sql query
+              cat >> db/queries.sql <<'EOF'
+
+-- Top customers by order volume, last 90 days
+SELECT customer_id, COUNT(*) AS orders, SUM(total) AS revenue
+FROM orders
+WHERE created_at >= NOW() - INTERVAL '90 days'
+GROUP BY customer_id
+ORDER BY revenue DESC
+LIMIT 20;
+EOF
+              FILE_MSG="add analytics query"
+              ;;
+            5)  # go snippet
+              cat >> src/cache.go <<'EOF'
+
+package main
+
+import "sync"
+
+type Cache struct {
+	mu   sync.RWMutex
+	data map[string]string
+}
+
+func (c *Cache) Get(key string) (string, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	v, ok := c.data[key]
+	return v, ok
+}
+EOF
+              FILE_MSG="add cache implementation"
+              ;;
+          esac
+
+          # ---------- NOTES (alternate days, keep it human) ----------
+          if [ $((N % 3)) -eq 0 ]; then
+            LINES=(
+              "learned about rate limiting strategies"
+              "refactored error handling in side project"
+              "notes from debugging a race condition"
+              "reading about database indexing"
+              "practiced graph traversal problems"
+              "reviewed a teammate's PR"
+            )
+            echo "- $(date '+%Y-%m-%d'): ${LINES[$((RANDOM % ${#LINES[@]}))]}" >> notes.md
+          fi
+
+          # occasionally create a standalone experiment file
+          if [ $((RANDOM % 10)) -eq 0 ]; then
+            echo "print('experiment run at $(date)')" > "experiments/test_$RANDOM.py"
+          fi
+
+          git add -A
+
+          MESSAGES=(
+            "$FILE_MSG"
+            "wip: $FILE_MSG"
+            "$FILE_MSG and cleanup"
+            "chore: $FILE_MSG"
+            "feat: $FILE_MSG"
+            "small fixes"
+          )
+          git commit -m "${MESSAGES[$((RANDOM % ${#MESSAGES[@]}))]}" || exit 0
+          git push
