@@ -1,2 +1,3 @@
 - 2026-10-08: learned about rate limiting strategies
 - 2026-10-17: notes from debugging a race condition
+- 2026-10-18: refactored error handling in side project

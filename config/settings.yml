@@ -16,3 +16,12 @@ logging:
 retries:
   max_attempts: 3
   backoff: exponential
+logging:
+  level: info
+  format: json
+  outputs:
+    - console
+    - file
+retries:
+  max_attempts: 3
+  backoff: exponential
